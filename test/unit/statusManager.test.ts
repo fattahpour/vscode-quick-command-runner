@@ -51,3 +51,15 @@ test('onDidChangeStatus notifies listeners with the affected command id', () => 
 
   assert.deepEqual(seen, ['build', 'build']);
 });
+
+test('onDidChangeStatus: disposed listener stops receiving notifications', () => {
+  const manager = new StatusManager();
+  const seen: string[] = [];
+  const sub = manager.onDidChangeStatus((commandId) => seen.push(commandId));
+
+  manager.startExecution('build', 123, 1000);
+  sub.dispose();
+  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000 });
+
+  assert.deepEqual(seen, ['build']);
+});
