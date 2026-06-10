@@ -47,7 +47,7 @@ mkdir -p src test/unit
     "watch": "tsc -w -p ./",
     "lint": "eslint src test",
     "pretest": "npm run compile",
-    "test:unit": "node --test ./out/test/unit",
+    "test:unit": "node --test 'out/test/**/*.test.js'",
     "test": "npm run test:unit"
   },
   "dependencies": {
