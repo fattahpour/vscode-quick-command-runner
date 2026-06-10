@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveShell } from '../../src/processManager';
+import { buildSpawnArgs, resolveShell } from '../../src/processManager';
+import { CommandDefinition } from '../../src/types';
 
 const noFiles = () => false;
 
@@ -143,4 +144,55 @@ test('resolveShell: pwsh on darwin when not installed', () => {
 test('resolveShell: sh on linux', () => {
   const result = resolveShell('sh', { platform: 'linux', env: {}, fileExists: noFiles });
   assert.deepEqual(result, { executable: '/bin/sh', shellArgs: ['-c'] });
+});
+
+test('buildSpawnArgs: command uses resolved shell (linux auto -> /bin/sh)', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', command: 'npm test' };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/sh', args: ['-c', 'npm test'] });
+});
+
+test('buildSpawnArgs: command with explicit bash shell', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', command: 'echo hi', shell: 'bash' };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/bash', args: ['-c', 'echo hi'] });
+});
+
+test('buildSpawnArgs: .sh file with no explicit shell infers bash', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', file: 'scripts/build.sh', args: ['--release'] };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/bash', args: ['scripts/build.sh', '--release'] });
+});
+
+test('buildSpawnArgs: .ps1 file infers powershell -File', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', file: 'scripts/deploy.ps1' };
+  const result = buildSpawnArgs(def, { platform: 'win32', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, {
+    executable: 'powershell.exe',
+    args: ['-NoProfile', '-File', 'scripts/deploy.ps1'],
+  });
+});
+
+test('buildSpawnArgs: .bat file on win32 uses cmd', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', file: 'scripts/build.bat', args: ['Release'] };
+  const result = buildSpawnArgs(def, { platform: 'win32', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: 'cmd.exe', args: ['/d', '/s', '/c', 'scripts/build.bat', 'Release'] });
+});
+
+test('buildSpawnArgs: .py file uses python3 on non-windows', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', file: 'scripts/run.py', args: ['--fast'] };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: 'python3', args: ['scripts/run.py', '--fast'] });
+});
+
+test('buildSpawnArgs: executable file with no extension spawns directly', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', file: './my-tool', args: ['--version'] };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: './my-tool', args: ['--version'] });
+});
+
+test('buildSpawnArgs: returns null when shell is unsupported on this platform', () => {
+  const def: CommandDefinition = { id: 'x', name: 'X', command: 'dir', shell: 'cmd' };
+  const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.equal(result, null);
 });

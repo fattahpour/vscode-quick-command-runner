@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { ResolvedShell, ShellType } from './types';
+import { CommandDefinition, ResolvedShell, ShellType } from './types';
 
 export interface ShellResolutionContext {
   platform: NodeJS.Platform;
@@ -84,4 +84,65 @@ export function resolveShell(
       return { executable: '/bin/sh', shellArgs: ['-c'] };
     }
   }
+}
+
+const SCRIPT_SHELL_BY_EXT: Record<string, ShellType> = {
+  '.sh': 'bash',
+  '.ps1': 'powershell',
+  '.bat': 'cmd',
+  '.cmd': 'cmd',
+};
+
+export interface SpawnArgs {
+  executable: string;
+  args: string[];
+}
+
+export function buildSpawnArgs(def: CommandDefinition, ctx: ShellResolutionContext): SpawnArgs | null {
+  if (def.command) {
+    const resolved = resolveShell(def.shell ?? 'auto', ctx);
+    if (!resolved) {
+      return null;
+    }
+    return { executable: resolved.executable, args: [...resolved.shellArgs, def.command] };
+  }
+
+  if (def.file) {
+    const extra = def.args ?? [];
+    const ext = path.extname(def.file).toLowerCase();
+    const effectiveShell = def.shell ?? SCRIPT_SHELL_BY_EXT[ext];
+
+    if (effectiveShell === 'powershell' || effectiveShell === 'pwsh') {
+      const resolved = resolveShell(effectiveShell, ctx);
+      if (!resolved) {
+        return null;
+      }
+      return { executable: resolved.executable, args: ['-NoProfile', '-File', def.file, ...extra] };
+    }
+
+    if (
+      effectiveShell === 'bash' ||
+      effectiveShell === 'gitbash' ||
+      effectiveShell === 'sh' ||
+      effectiveShell === 'zsh'
+    ) {
+      const resolved = resolveShell(effectiveShell, ctx);
+      if (!resolved) {
+        return null;
+      }
+      return { executable: resolved.executable, args: [def.file, ...extra] };
+    }
+
+    if (effectiveShell === 'cmd') {
+      return { executable: 'cmd.exe', args: ['/d', '/s', '/c', def.file, ...extra] };
+    }
+
+    if (ext === '.py') {
+      return { executable: ctx.platform === 'win32' ? 'python' : 'python3', args: [def.file, ...extra] };
+    }
+
+    return { executable: def.file, args: extra };
+  }
+
+  return null;
 }
