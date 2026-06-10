@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSpawnArgs, resolveShell } from '../../src/processManager';
+import { buildSpawnArgs, resolveShell, spawnProcess, cancelProcess } from '../../src/processManager';
 import { CommandDefinition } from '../../src/types';
 
 const noFiles = () => false;
@@ -195,4 +195,43 @@ test('buildSpawnArgs: returns null when shell is unsupported on this platform', 
   const def: CommandDefinition = { id: 'x', name: 'X', command: 'dir', shell: 'cmd' };
   const result = buildSpawnArgs(def, { platform: 'linux', env: {}, fileExists: noFiles });
   assert.equal(result, null);
+});
+
+test('spawnProcess runs a command and captures stdout', async () => {
+  const { child } = spawnProcess(process.execPath, ['-e', "console.log('hello')"], {
+    cwd: process.cwd(),
+    env: process.env,
+  });
+
+  let output = '';
+  child.stdout?.on('data', (chunk) => {
+    output += chunk.toString();
+  });
+
+  const exitCode = await new Promise<number | null>((resolve) => {
+    child.on('exit', (code) => resolve(code));
+  });
+
+  assert.equal(exitCode, 0);
+  assert.match(output, /hello/);
+});
+
+test('cancelProcess terminates a running process', async () => {
+  const { pid, child } = spawnProcess(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    cwd: process.cwd(),
+    env: process.env,
+  });
+
+  await cancelProcess(pid, 50);
+
+  // Wait for process to actually exit
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => resolve(), 1000);
+    child.on('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+
+  assert.notEqual(child.signalCode, null);
 });

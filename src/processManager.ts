@@ -1,4 +1,7 @@
 import * as path from 'path';
+import { ChildProcess } from 'child_process';
+import spawn from 'cross-spawn';
+import treeKill from 'tree-kill';
 import { CommandDefinition, ResolvedShell, ShellType } from './types';
 
 export interface ShellResolutionContext {
@@ -145,4 +148,36 @@ export function buildSpawnArgs(def: CommandDefinition, ctx: ShellResolutionConte
   }
 
   return null;
+}
+
+export interface RunOptions {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+}
+
+export interface RunHandle {
+  pid: number;
+  child: ChildProcess;
+}
+
+export function spawnProcess(executable: string, args: string[], options: RunOptions): RunHandle {
+  const child = spawn(executable, args, { cwd: options.cwd, env: options.env });
+  if (child.pid === undefined) {
+    throw new Error(`Failed to spawn process: ${executable}`);
+  }
+  return { pid: child.pid, child };
+}
+
+export function cancelProcess(pid: number, graceMs: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    treeKill(pid, 'SIGTERM', (_err?: Error) => {
+      // Ignore error for SIGTERM
+      setTimeout(() => {
+        treeKill(pid, 'SIGKILL', (_err?: Error) => {
+          // Ignore error for SIGKILL
+          resolve();
+        });
+      }, graceMs);
+    });
+  });
 }
