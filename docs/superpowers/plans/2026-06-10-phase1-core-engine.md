@@ -957,14 +957,15 @@ export function spawnProcess(executable: string, args: string[], options: RunOpt
 export function cancelProcess(pid: number, graceMs: number): Promise<void> {
   return new Promise((resolve) => {
     treeKill(pid, 'SIGTERM', () => {
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         treeKill(pid, 'SIGKILL', () => resolve());
       }, graceMs);
-      timer.unref();
     });
   });
 }
 ```
+
+> **Note:** an earlier draft of this function called `timer.unref()` on the grace-period timer. On Node 22.22.2, `node --test` cancels the `cancelProcess terminates a running process` test in that case — once the child exits and its pipes close, the unref'd timer no longer counts toward the event loop, so the runner reports "Promise resolution is still pending but the event loop has already resolved" before the SIGKILL callback fires. Omitting `.unref()` (as above) fixes this; the grace-period timer is short-lived (tens of ms to a couple seconds) so leaving it ref'd has no meaningful effect on extension host shutdown.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
