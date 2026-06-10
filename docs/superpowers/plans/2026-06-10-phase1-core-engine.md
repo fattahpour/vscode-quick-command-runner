@@ -57,7 +57,6 @@ mkdir -p src test/unit
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^20.14.0",
-    "@types/tree-kill": "^1.2.3",
     "@types/vscode": "^1.85.0",
     "eslint": "^9.9.0",
     "typescript": "^5.5.4",
@@ -931,6 +930,8 @@ import spawn from 'cross-spawn';
 import treeKill from 'tree-kill';
 import { CommandDefinition, ResolvedShell, ShellType } from './types';
 ```
+
+`tree-kill` ships its own `index.d.ts` (an `export =` of the function), so no separate `@types/tree-kill` package is needed — `import treeKill from 'tree-kill'` works via `esModuleInterop`.
 
 Then append to the end of `src/processManager.ts`:
 
