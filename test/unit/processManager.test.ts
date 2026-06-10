@@ -101,3 +101,46 @@ test('resolveShell: pwsh on linux when installed', () => {
   });
   assert.deepEqual(result, { executable: '/usr/bin/pwsh', shellArgs: ['-NoProfile', '-Command'] });
 });
+
+test('resolveShell: pwsh on win32', () => {
+  const result = resolveShell('pwsh', { platform: 'win32', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: 'pwsh.exe', shellArgs: ['-NoProfile', '-Command'] });
+});
+
+test('resolveShell: bash on darwin', () => {
+  const result = resolveShell('bash', { platform: 'darwin', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/bash', shellArgs: ['-c'] });
+});
+
+test('resolveShell: sh on darwin', () => {
+  const result = resolveShell('sh', { platform: 'darwin', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/sh', shellArgs: ['-c'] });
+});
+
+test('resolveShell: zsh on darwin uses zsh when present', () => {
+  const result = resolveShell('zsh', {
+    platform: 'darwin',
+    env: {},
+    fileExists: (p) => p === '/bin/zsh',
+  });
+  assert.deepEqual(result, { executable: '/bin/zsh', shellArgs: ['-c'] });
+});
+
+test('resolveShell: auto on darwin uses $SHELL', () => {
+  const result = resolveShell('auto', {
+    platform: 'darwin',
+    env: { SHELL: '/bin/zsh' },
+    fileExists: noFiles,
+  });
+  assert.deepEqual(result, { executable: '/bin/zsh', shellArgs: ['-c'] });
+});
+
+test('resolveShell: pwsh on darwin when not installed', () => {
+  const result = resolveShell('pwsh', { platform: 'darwin', env: {}, fileExists: noFiles });
+  assert.equal(result, null);
+});
+
+test('resolveShell: sh on linux', () => {
+  const result = resolveShell('sh', { platform: 'linux', env: {}, fileExists: noFiles });
+  assert.deepEqual(result, { executable: '/bin/sh', shellArgs: ['-c'] });
+});
