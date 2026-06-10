@@ -169,14 +169,10 @@ export function spawnProcess(executable: string, args: string[], options: RunOpt
 }
 
 export function cancelProcess(pid: number, graceMs: number): Promise<void> {
-  return new Promise<void>((resolve) => {
-    treeKill(pid, 'SIGTERM', (_err?: Error) => {
-      // Ignore error for SIGTERM
+  return new Promise((resolve) => {
+    treeKill(pid, 'SIGTERM', () => {
       setTimeout(() => {
-        treeKill(pid, 'SIGKILL', (_err?: Error) => {
-          // Ignore error for SIGKILL
-          resolve();
-        });
+        treeKill(pid, 'SIGKILL', () => resolve());
       }, graceMs);
     });
   });

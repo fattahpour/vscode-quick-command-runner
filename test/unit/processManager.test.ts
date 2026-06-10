@@ -222,16 +222,9 @@ test('cancelProcess terminates a running process', async () => {
     env: process.env,
   });
 
+  const exited = new Promise<void>((resolve) => child.on('exit', () => resolve()));
   await cancelProcess(pid, 50);
-
-  // Wait for process to actually exit
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => resolve(), 1000);
-    child.on('exit', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
+  await exited;
 
   assert.notEqual(child.signalCode, null);
 });
