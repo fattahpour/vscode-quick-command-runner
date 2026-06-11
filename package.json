@@ -9,7 +9,94 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
   "main": "./out/src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "quickCommandRunner",
+          "title": "Quick Command Runner",
+          "icon": "icons/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "quickCommandRunner": [
+        {
+          "id": "quickCommandRunnerCommands",
+          "name": "Commands"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "quickCommandRunnerCommands",
+        "contents": "No configuration file found.\n[Create Config](command:quickCommandRunner.createConfig)",
+        "when": "!quickCommandRunner.configExists"
+      }
+    ],
+    "configuration": {
+      "title": "Quick Command Runner",
+      "properties": {
+        "quickCommandRunner.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show start/finish notifications for command executions."
+        },
+        "quickCommandRunner.cancelGracePeriodMs": {
+          "type": "number",
+          "default": 3000,
+          "description": "Delay in milliseconds between SIGTERM and SIGKILL when cancelling a running command."
+        }
+      }
+    },
+    "commands": [
+      { "command": "quickCommandRunner.run", "title": "Run", "icon": "$(play)" },
+      { "command": "quickCommandRunner.cancel", "title": "Cancel", "icon": "$(debug-stop)" },
+      { "command": "quickCommandRunner.refresh", "title": "Refresh", "icon": "$(refresh)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.search", "title": "Search Commands", "icon": "$(search)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.clearFilter", "title": "Clear Filter", "icon": "$(clear-all)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.openLog", "title": "Open Log", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.clearLog", "title": "Clear Log", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.copyCommandLine", "title": "Copy Command Line", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.createConfig", "title": "Create Config", "category": "Quick Command Runner" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "quickCommandRunner.refresh", "when": "view == quickCommandRunnerCommands", "group": "navigation@1" },
+        { "command": "quickCommandRunner.search", "when": "view == quickCommandRunnerCommands", "group": "navigation@2" },
+        { "command": "quickCommandRunner.clearFilter", "when": "view == quickCommandRunnerCommands && quickCommandRunner.filterActive", "group": "navigation@3" }
+      ],
+      "view/item/context": [
+        {
+          "command": "quickCommandRunner.run",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\.(idle|success|failed|cancelled)$/",
+          "group": "inline"
+        },
+        {
+          "command": "quickCommandRunner.cancel",
+          "when": "view == quickCommandRunnerCommands && viewItem == cmd.running",
+          "group": "inline"
+        },
+        {
+          "command": "quickCommandRunner.openLog",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\./",
+          "group": "1_log"
+        },
+        {
+          "command": "quickCommandRunner.clearLog",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\./",
+          "group": "1_log"
+        },
+        {
+          "command": "quickCommandRunner.copyCommandLine",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\./",
+          "group": "2_copy"
+        }
+      ]
+    }
+  },
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
