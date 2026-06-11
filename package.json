@@ -39,10 +39,15 @@
     "configuration": {
       "title": "Quick Command Runner",
       "properties": {
+        "quickCommandRunner.autoCopyPath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Global default for auto-copying the first detected output path to the clipboard. Per-command \"autoCopyPath\" overrides this."
+        },
         "quickCommandRunner.showNotifications": {
           "type": "boolean",
           "default": true,
-          "description": "Show start/finish notifications for command executions."
+          "description": "Show start/finish/path-copied notifications for command executions."
         },
         "quickCommandRunner.cancelGracePeriodMs": {
           "type": "number",

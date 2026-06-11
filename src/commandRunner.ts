@@ -3,10 +3,14 @@ import { CommandDefinition, ExecutionStatus } from './types';
 import { buildSpawnArgs, cancelProcess, spawnProcess, ShellResolutionContext } from './processManager';
 import { StatusManager } from './statusManager';
 import { LogManager } from './logManager';
+import { ClipboardManager } from './clipboardManager';
+import { PathExtractor } from './pathExtractor';
 
 export interface CommandRunnerOptions {
   workspaceFolder: string;
   cancelGracePeriodMs: number;
+  autoCopyPathDefault: boolean;
+  notifyPathCopied: (path: string) => void;
 }
 
 export class CommandRunner {
@@ -15,6 +19,7 @@ export class CommandRunner {
   constructor(
     private readonly statusManager: StatusManager,
     private readonly logManager: LogManager,
+    private readonly clipboardManager: ClipboardManager,
     private readonly options: CommandRunnerOptions,
   ) {}
 
@@ -55,18 +60,36 @@ export class CommandRunner {
     this.statusManager.startExecution(resolved.id, pid, startTime);
 
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-    if (resolved.timeout) {
+    const timeoutMs = resolved.timeout;
+    if (timeoutMs) {
       timeoutHandle = setTimeout(() => {
+        this.logManager.appendTimeout(resolved.id, resolved.name, timeoutMs);
         void cancelProcess(pid, this.options.cancelGracePeriodMs);
-      }, resolved.timeout);
+      }, timeoutMs);
     }
 
-    child.stdout?.on('data', (chunk: Buffer) => {
-      this.logManager.appendOutput(resolved.id, resolved.name, 'stdout', chunk.toString());
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      this.logManager.appendOutput(resolved.id, resolved.name, 'stderr', chunk.toString());
-    });
+    const pathExtractor = new PathExtractor();
+    let revealedLog = false;
+    let copiedFirstPath = false;
+
+    const handleChunk = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
+      const text = chunk.toString();
+      this.logManager.appendOutput(resolved.id, resolved.name, stream, text);
+
+      if (resolved.autoOpenLog && !revealedLog) {
+        revealedLog = true;
+        this.logManager.show(resolved.id, resolved.name);
+      }
+
+      const newPaths = pathExtractor.scan(text);
+      if (!copiedFirstPath && newPaths.length > 0) {
+        copiedFirstPath = true;
+        void this.copyFirstPath(resolved, newPaths[0]);
+      }
+    };
+
+    child.stdout?.on('data', (chunk: Buffer) => handleChunk('stdout', chunk));
+    child.stderr?.on('data', (chunk: Buffer) => handleChunk('stderr', chunk));
 
     await new Promise<void>((resolve) => {
       child.on('exit', (code) => {
@@ -74,6 +97,12 @@ export class CommandRunner {
           clearTimeout(timeoutHandle);
         }
         this.logManager.flush(resolved.id, resolved.name);
+
+        const flushedPaths = pathExtractor.flush();
+        if (!copiedFirstPath && flushedPaths.length > 0) {
+          copiedFirstPath = true;
+          void this.copyFirstPath(resolved, flushedPaths[0]);
+        }
 
         const wasCancelled = this.cancelledPids.delete(pid);
         const status: ExecutionStatus = wasCancelled ? 'cancelled' : code === 0 ? 'success' : 'failed';
@@ -84,7 +113,7 @@ export class CommandRunner {
           endTime,
           durationMs: endTime - startTime,
           exitCode: code,
-          extractedPaths: [],
+          extractedPaths: pathExtractor.getExtractedPaths(),
         });
         resolve();
       });
@@ -97,6 +126,16 @@ export class CommandRunner {
       this.cancelledPids.add(execution.pid);
       void cancelProcess(execution.pid, this.options.cancelGracePeriodMs);
     }
+  }
+
+  private async copyFirstPath(resolved: CommandDefinition, extractedPath: string): Promise<void> {
+    const shouldCopy = resolved.autoCopyPath ?? this.options.autoCopyPathDefault;
+    if (!shouldCopy) {
+      return;
+    }
+    await this.clipboardManager.copy(extractedPath);
+    this.logManager.appendInfo(resolved.id, resolved.name, `Copied path to clipboard: ${extractedPath}`);
+    this.options.notifyPathCopied(extractedPath);
   }
 
   /** Substitutes `${workspaceFolder}` across cwd/command/file/args/env (spec §3.2 step 2) and merges env over process.env. */

@@ -57,12 +57,24 @@ export function activate(context: vscode.ExtensionContext): void {
     .getConfiguration('quickCommandRunner')
     .get<number>('cancelGracePeriodMs', 3000);
 
-  const runner = workspaceFolder
-    ? new CommandRunner(statusManager, logManager, { workspaceFolder, cancelGracePeriodMs })
-    : undefined;
-
   const showNotificationsEnabled = (): boolean =>
     vscode.workspace.getConfiguration('quickCommandRunner').get<boolean>('showNotifications', true);
+
+  const autoCopyPathDefault = (): boolean =>
+    vscode.workspace.getConfiguration('quickCommandRunner').get<boolean>('autoCopyPath', true);
+
+  const runner = workspaceFolder
+    ? new CommandRunner(statusManager, logManager, clipboardManager, {
+        workspaceFolder,
+        cancelGracePeriodMs,
+        autoCopyPathDefault: autoCopyPathDefault(),
+        notifyPathCopied: (copiedPath: string) => {
+          if (showNotificationsEnabled()) {
+            void vscode.window.showInformationMessage(`Path copied to clipboard: ${copiedPath}`);
+          }
+        },
+      })
+    : undefined;
 
   const runCommand = async (def: CommandDefinition): Promise<void> => {
     if (!runner) {
