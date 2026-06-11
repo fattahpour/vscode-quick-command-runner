@@ -283,10 +283,6 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       const { entry } = item;
-      if (logManager.hasChannel(entry.commandId)) {
-        logManager.show(entry.commandId, entry.commandSnapshot.name);
-        return;
-      }
       const content = [
         `$ ${entry.fullCommand}`,
         '',
