@@ -86,6 +86,7 @@ export interface LastResult {
   status: ExecutionStatus;
   endTime: number;
   durationMs: number;
+  exitCode: number | null;
 }
 
 export interface CommandStatus {

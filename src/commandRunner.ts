@@ -41,6 +41,7 @@ export class CommandRunner {
         status: 'invalid',
         endTime: Date.now(),
         durationMs: 0,
+        exitCode: null,
       });
       return;
     }
@@ -81,6 +82,7 @@ export class CommandRunner {
           status,
           endTime,
           durationMs: endTime - startTime,
+          exitCode: code,
         });
         resolve();
       });
