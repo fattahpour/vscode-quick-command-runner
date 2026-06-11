@@ -41,6 +41,10 @@ export class LogManager {
     this.getChannel(commandId, commandName).show(true);
   }
 
+  clear(commandId: string, commandName: string): void {
+    this.getChannel(commandId, commandName).clear();
+  }
+
   appendConfigMessage(message: string): void {
     if (!this.configChannel) {
       this.configChannel = vscode.window.createOutputChannel('Quick Command Runner: Configuration');
