@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.getConfiguration('quickCommandRunner').get<boolean>('autoCopyPath', true);
 
   const runner = workspaceFolder
-    ? new CommandRunner(statusManager, logManager, clipboardManager, {
+    ? new CommandRunner(statusManager, logManager, clipboardManager, historyManager, {
         workspaceFolder,
         cancelGracePeriodMs,
         autoCopyPathDefault: autoCopyPathDefault(),

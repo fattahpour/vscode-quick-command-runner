@@ -1,10 +1,12 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
-import { CommandDefinition, ExecutionStatus } from './types';
+import { CommandDefinition, ExecutionStatus, HistoryEntry } from './types';
 import { buildSpawnArgs, cancelProcess, spawnProcess, ShellResolutionContext } from './processManager';
 import { StatusManager } from './statusManager';
 import { LogManager } from './logManager';
 import { ClipboardManager } from './clipboardManager';
 import { PathExtractor } from './pathExtractor';
+import { HistoryManager, TruncatingBuffer } from './historyManager';
 
 export interface CommandRunnerOptions {
   workspaceFolder: string;
@@ -20,6 +22,7 @@ export class CommandRunner {
     private readonly statusManager: StatusManager,
     private readonly logManager: LogManager,
     private readonly clipboardManager: ClipboardManager,
+    private readonly historyManager: HistoryManager,
     private readonly options: CommandRunnerOptions,
   ) {}
 
@@ -52,6 +55,9 @@ export class CommandRunner {
       return;
     }
 
+    this.historyManager.recordUsed(resolved.id);
+
+    const fullCommand = [spawnArgs.executable, ...spawnArgs.args].join(' ');
     const cwd = resolved.cwd ?? this.options.workspaceFolder;
     const env = { ...process.env, ...resolved.env };
     const startTime = Date.now();
@@ -69,12 +75,15 @@ export class CommandRunner {
     }
 
     const pathExtractor = new PathExtractor();
+    const stdoutBuffer = new TruncatingBuffer();
+    const stderrBuffer = new TruncatingBuffer();
     let revealedLog = false;
     let copiedFirstPath = false;
 
     const handleChunk = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
       const text = chunk.toString();
       this.logManager.appendOutput(resolved.id, resolved.name, stream, text);
+      (stream === 'stdout' ? stdoutBuffer : stderrBuffer).append(text);
 
       if (resolved.autoOpenLog && !revealedLog) {
         revealedLog = true;
@@ -115,6 +124,25 @@ export class CommandRunner {
           exitCode: code,
           extractedPaths: pathExtractor.getExtractedPaths(),
         });
+
+        const historyEntry: HistoryEntry = {
+          entryId: crypto.randomUUID(),
+          commandId: resolved.id,
+          commandSnapshot: resolved,
+          fullCommand,
+          shell: resolved.shell ?? 'auto',
+          cwd,
+          startTime,
+          endTime,
+          durationMs: endTime - startTime,
+          exitCode: code,
+          status,
+          stdout: stdoutBuffer.toString(),
+          stderr: stderrBuffer.toString(),
+          extractedPaths: pathExtractor.getExtractedPaths(),
+        };
+        this.historyManager.add(historyEntry);
+
         resolve();
       });
     });
