@@ -4,3 +4,4 @@ out/
 .vscode-test/
 .superpowers/
 .worktrees/
+.vscode/quick-command-runner.json

@@ -5,6 +5,15 @@
   "version": "0.1.0",
   "publisher": "your-publisher-name",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fattahpour/vscode-quick-command-runner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fattahpour/vscode-quick-command-runner/issues"
+  },
+  "homepage": "https://github.com/fattahpour/vscode-quick-command-runner#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
