@@ -1,6 +1,6 @@
 {
-  "name": "quick-command-runner",
-  "displayName": "Quick Command Runner",
+  "name": "vscode-quick-command-runner",
+  "displayName": "Quick Command Runner Sidebar",
   "description": "Run frequently-used commands, scripts, and tools from a VS Code sidebar with execution tracking, history, and automatic path detection.",
   "version": "0.1.0",
   "publisher": "fattahpour",
