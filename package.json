@@ -3,8 +3,8 @@
   "displayName": "Quick Command Runner",
   "description": "Run frequently-used commands, scripts, and tools from a VS Code sidebar with execution tracking, history, and automatic path detection.",
   "version": "0.1.0",
-  "publisher": "your-publisher-name",
-  "private": true,
+  "publisher": "fattahpour",
+  "icon": "icons/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,6 +18,13 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
+  "keywords": [
+    "command runner",
+    "task runner",
+    "shell",
+    "scripts",
+    "productivity"
+  ],
   "activationEvents": ["onStartupFinished"],
   "main": "./out/src/extension.js",
   "contributes": {
@@ -156,7 +163,10 @@
     "lint": "eslint src test",
     "pretest": "npm run compile",
     "test:unit": "node --test 'out/test/**/*.test.js'",
-    "test": "npm run test:unit"
+    "test": "npm run test:unit",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "dependencies": {
     "cross-spawn": "^7.0.3",
@@ -166,6 +176,7 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
     "eslint": "^9.9.0",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.0"

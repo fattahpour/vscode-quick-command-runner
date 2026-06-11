@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+.worktrees/**
+.superpowers/**
+.git/**
+.gitignore
+docs/**
+src/**
+test/**
+out/test/**
+**/*.map
+**/*.ts
+.eslintrc*
+eslint.config.mjs
+tsconfig.json
+icons/icon.svg
