@@ -68,6 +68,7 @@ export function buildCommandViewState(
   commandStatus: CommandStatus,
   isInvalid: boolean,
   now: number,
+  isFavorite: boolean,
 ): CommandViewState {
   const status = deriveDisplayStatus(commandStatus, isInvalid);
   const { icon, color } = STATUS_ICONS[status];
@@ -84,7 +85,7 @@ export function buildCommandViewState(
     status,
     description: formatStatusDescription(status, commandStatus, now),
     tooltip: tooltipLines.join('\n'),
-    contextValue: `cmd.${status}`,
+    contextValue: `cmd.${status}.${isFavorite ? 'fav' : 'nofav'}`,
     iconId: icon,
     iconColor: color,
   };
@@ -105,4 +106,46 @@ export function filterGroups(groups: CommandGroup[], filterText: string): Comman
       ),
     }))
     .filter((group) => group.commands.length > 0);
+}
+
+export function buildCommandTree(
+  groups: CommandGroup[],
+  favoriteIds: string[],
+  recentIds: string[],
+  filterText: string,
+): CommandGroup[] {
+  const filtered = filterGroups(groups, filterText);
+
+  const allCommands = new Map<string, CommandDefinition>();
+  for (const group of groups) {
+    for (const cmd of group.commands) {
+      allCommands.set(cmd.id, cmd);
+    }
+  }
+
+  const filteredIds = new Set<string>();
+  for (const group of filtered) {
+    for (const cmd of group.commands) {
+      filteredIds.add(cmd.id);
+    }
+  }
+
+  const resolveIds = (ids: string[]): CommandDefinition[] =>
+    ids
+      .filter((id) => filteredIds.has(id))
+      .map((id) => allCommands.get(id))
+      .filter((cmd): cmd is CommandDefinition => cmd !== undefined);
+
+  const favoriteCommands = resolveIds(favoriteIds);
+  const recentCommands = resolveIds(recentIds);
+
+  const result: CommandGroup[] = [];
+  if (favoriteCommands.length > 0) {
+    result.push({ name: '⭐ Favorites', commands: favoriteCommands });
+  }
+  if (recentCommands.length > 0) {
+    result.push({ name: '🕐 Recent', commands: recentCommands });
+  }
+  result.push(...filtered);
+  return result;
 }

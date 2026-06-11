@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG } from './defaultConfig';
 import { StatusManager } from './statusManager';
 import { LogManager } from './logManager';
 import { ClipboardManager } from './clipboardManager';
+import { HistoryManager } from './historyManager';
 import { CommandRunner } from './commandRunner';
 import { CommandProvider, CommandTreeItem } from './commandProvider';
 import { describeCommandLine } from './commandViewModel';
@@ -25,6 +26,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusManager = new StatusManager();
   const logManager = new LogManager();
   const clipboardManager = new ClipboardManager();
+  const historyManager = new HistoryManager(context.workspaceState, { historyLimit: 200, recentLimit: 5 });
 
   let configResult: ConfigLoadResult = EMPTY_CONFIG;
 
@@ -48,7 +50,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   reloadConfig();
 
-  const provider = new CommandProvider(() => configResult, statusManager);
+  const provider = new CommandProvider(() => configResult, statusManager, historyManager);
   const treeView = vscode.window.createTreeView('quickCommandRunnerCommands', {
     treeDataProvider: provider,
   });

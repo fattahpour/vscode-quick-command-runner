@@ -7,6 +7,7 @@ import {
   describeCommandLine,
   buildCommandViewState,
   filterGroups,
+  buildCommandTree,
 } from '../../src/commandViewModel';
 import { CommandStatus, CommandGroup, CommandDefinition } from '../../src/types';
 
@@ -111,7 +112,7 @@ test('describeCommandLine: file-based definition with no args returns just the f
   assert.equal(describeCommandLine(def), 'scripts/run.py');
 });
 
-test('buildCommandViewState: combines status, description, tooltip, contextValue, and icon', () => {
+test('buildCommandViewState: combines status, description, tooltip, contextValue, and icon (not favorited)', () => {
   const def: CommandDefinition = {
     id: 'build',
     name: 'Build',
@@ -124,16 +125,25 @@ test('buildCommandViewState: combines status, description, tooltip, contextValue
     lastResult: { status: 'success', endTime: 5000, durationMs: 3200, exitCode: 0, extractedPaths: [] },
   };
 
-  const viewState = buildCommandViewState(def, status, false, 0);
+  const viewState = buildCommandViewState(def, status, false, 0, false);
 
   assert.deepEqual(viewState, {
     status: 'success',
     description: '✓ 3.2s',
     tooltip: 'npm run build\ncwd: /workspace\nBuilds the project',
-    contextValue: 'cmd.success',
+    contextValue: 'cmd.success.nofav',
     iconId: 'pass-filled',
     iconColor: 'testing.iconPassed',
   });
+});
+
+test('buildCommandViewState: contextValue carries .fav when the command is a favorite', () => {
+  const def: CommandDefinition = { id: 'build', name: 'Build', command: 'npm run build' };
+  const status: CommandStatus = { active: [], lastResult: null };
+
+  const viewState = buildCommandViewState(def, status, false, 0, true);
+
+  assert.equal(viewState.contextValue, 'cmd.idle.fav');
 });
 
 const SAMPLE_GROUPS: CommandGroup[] = [
@@ -174,4 +184,52 @@ test('filterGroups: groups with no matches are removed', () => {
 
 test('filterGroups: no matches returns empty array', () => {
   assert.deepEqual(filterGroups(SAMPLE_GROUPS, 'nonexistent'), []);
+});
+
+test('buildCommandTree: returns groups unchanged when there are no favorites or recents', () => {
+  assert.deepEqual(buildCommandTree(SAMPLE_GROUPS, [], [], ''), SAMPLE_GROUPS);
+});
+
+test('buildCommandTree: prepends a Favorites group containing the favorited command', () => {
+  const result = buildCommandTree(SAMPLE_GROUPS, ['lint'], [], '');
+  assert.equal(result[0].name, '⭐ Favorites');
+  assert.deepEqual(
+    result[0].commands.map((c) => c.id),
+    ['lint'],
+  );
+  assert.deepEqual(result.slice(1), SAMPLE_GROUPS);
+});
+
+test('buildCommandTree: prepends a Recent group after Favorites in MRU order', () => {
+  const result = buildCommandTree(SAMPLE_GROUPS, ['lint'], ['compose-up', 'build'], '');
+  assert.equal(result[0].name, '⭐ Favorites');
+  assert.equal(result[1].name, '🕐 Recent');
+  assert.deepEqual(
+    result[1].commands.map((c) => c.id),
+    ['compose-up', 'build'],
+  );
+});
+
+test('buildCommandTree: omits Favorites/Recent groups when empty', () => {
+  const result = buildCommandTree(SAMPLE_GROUPS, [], ['build'], '');
+  assert.equal(result[0].name, '🕐 Recent');
+  assert.deepEqual(result.slice(1), SAMPLE_GROUPS);
+});
+
+test('buildCommandTree: respects the active filter for Favorites/Recent', () => {
+  const result = buildCommandTree(SAMPLE_GROUPS, ['compose-up'], ['lint'], 'lint');
+  // 'compose-up' does not match the filter 'lint', so Favorites is empty and omitted
+  assert.equal(result[0].name, '🕐 Recent');
+  assert.deepEqual(
+    result[0].commands.map((c) => c.id),
+    ['lint'],
+  );
+  assert.deepEqual(
+    result.slice(1).map((g) => g.name),
+    ['Build'],
+  );
+});
+
+test('buildCommandTree: ignores favorite/recent ids that no longer exist in any group', () => {
+  assert.deepEqual(buildCommandTree(SAMPLE_GROUPS, ['ghost'], ['ghost'], ''), SAMPLE_GROUPS);
 });

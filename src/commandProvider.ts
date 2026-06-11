@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { CommandDefinition, CommandGroup, ConfigLoadResult } from './types';
 import { StatusManager, StatusChangeSubscription } from './statusManager';
-import { buildCommandViewState, filterGroups } from './commandViewModel';
+import { HistoryManager } from './historyManager';
+import { buildCommandViewState, buildCommandTree } from './commandViewModel';
 
 export class GroupTreeItem extends vscode.TreeItem {
   constructor(public readonly group: CommandGroup) {
@@ -11,11 +12,16 @@ export class GroupTreeItem extends vscode.TreeItem {
 }
 
 export class CommandTreeItem extends vscode.TreeItem {
-  constructor(public readonly def: CommandDefinition, isInvalid: boolean, statusManager: StatusManager) {
+  constructor(
+    public readonly def: CommandDefinition,
+    isInvalid: boolean,
+    statusManager: StatusManager,
+    isFavorite: boolean,
+  ) {
     super(def.name, vscode.TreeItemCollapsibleState.None);
 
     const status = statusManager.getStatus(def.id);
-    const viewState = buildCommandViewState(def, status, isInvalid, Date.now());
+    const viewState = buildCommandViewState(def, status, isInvalid, Date.now(), isFavorite);
 
     this.description = viewState.description;
     this.tooltip = viewState.tooltip;
@@ -36,6 +42,7 @@ export class CommandProvider implements vscode.TreeDataProvider<CommandNode>, vs
   constructor(
     private readonly getConfig: () => ConfigLoadResult,
     private readonly statusManager: StatusManager,
+    private readonly historyManager: HistoryManager,
   ) {
     this.statusSubscription = statusManager.onDidChangeStatus(() => this.refresh());
   }
@@ -63,17 +70,26 @@ export class CommandProvider implements vscode.TreeDataProvider<CommandNode>, vs
   }
 
   getChildren(element?: CommandNode): CommandNode[] {
-    const { config, invalidCommands } = this.getConfig();
-    const groups = filterGroups(config.groups, this.filterText);
+    const { config, validCommands, invalidCommands } = this.getConfig();
+    const tree = buildCommandTree(
+      config.groups,
+      this.historyManager.getFavorites(),
+      this.historyManager.getRecent(),
+      this.filterText,
+    );
 
     if (!element) {
-      return groups.map((group) => new GroupTreeItem(group));
+      return tree.map((group) => new GroupTreeItem(group));
     }
 
     if (element instanceof GroupTreeItem) {
+      const isSyntheticGroup = element.group.name === '⭐ Favorites' || element.group.name === '🕐 Recent';
       return element.group.commands.map((def) => {
-        const isInvalid = invalidCommands.has(`${element.group.name}/${def.id}`);
-        return new CommandTreeItem(def, isInvalid, this.statusManager);
+        const isInvalid = isSyntheticGroup
+          ? !validCommands.has(def.id)
+          : invalidCommands.has(`${element.group.name}/${def.id}`);
+        const isFavorite = this.historyManager.isFavorite(def.id);
+        return new CommandTreeItem(def, isInvalid, this.statusManager, isFavorite);
       });
     }
 
