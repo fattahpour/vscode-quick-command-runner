@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 type OutputStream = 'stdout' | 'stderr';
+type LogLineKind = OutputStream | 'info' | 'timeout';
 
 function formatTimestamp(date: Date): string {
   const pad = (value: number, width = 2) => value.toString().padStart(width, '0');
@@ -23,6 +24,16 @@ export class LogManager {
     for (const line of lines) {
       this.writeLine(channel, stream, line);
     }
+  }
+
+  appendInfo(commandId: string, commandName: string, message: string): void {
+    const channel = this.getChannel(commandId, commandName);
+    this.writeLine(channel, 'info', message);
+  }
+
+  appendTimeout(commandId: string, commandName: string, timeoutMs: number): void {
+    const channel = this.getChannel(commandId, commandName);
+    this.writeLine(channel, 'timeout', `Command exceeded ${timeoutMs}ms and was terminated.`);
   }
 
   flush(commandId: string, commandName: string): void {
@@ -68,8 +79,8 @@ export class LogManager {
     return channel;
   }
 
-  private writeLine(channel: vscode.OutputChannel, stream: OutputStream, line: string): void {
-    const tag = stream === 'stderr' ? ' [stderr]' : '';
+  private writeLine(channel: vscode.OutputChannel, kind: LogLineKind, line: string): void {
+    const tag = kind === 'stderr' ? ' [stderr]' : kind === 'info' ? ' [info]' : kind === 'timeout' ? ' [timeout]' : '';
     channel.appendLine(`[${formatTimestamp(new Date())}]${tag} ${line}`);
   }
 }
