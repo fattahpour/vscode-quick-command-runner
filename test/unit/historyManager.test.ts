@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HistoryManager, HistoryMemento, filterEntries, sortEntries } from '../../src/historyManager';
+import {
+  HistoryManager,
+  HistoryMemento,
+  filterEntries,
+  sortEntries,
+  TruncatingBuffer,
+  HISTORY_OUTPUT_CAP,
+  TRUNCATION_MARKER,
+} from '../../src/historyManager';
 import { HistoryEntry } from '../../src/types';
 
 function createFakeMemento(initial: Record<string, unknown> = {}): HistoryMemento {
@@ -191,4 +199,79 @@ test('HistoryManager.getAll applies the active filter and sort together', () => 
     manager.getAll().map((e) => e.entryId),
     ['b', 'c'],
   );
+});
+
+test('HISTORY_OUTPUT_CAP is 100KB', () => {
+  assert.equal(HISTORY_OUTPUT_CAP, 100 * 1024);
+});
+
+test('TruncatingBuffer: returns full content when under the cap', () => {
+  const buffer = new TruncatingBuffer(20);
+  buffer.append('hello');
+  buffer.append(' world');
+  assert.equal(buffer.toString(), 'hello world');
+});
+
+test('TruncatingBuffer: truncates and appends a marker once the cap is exceeded', () => {
+  const buffer = new TruncatingBuffer(5);
+  buffer.append('hello world');
+  assert.equal(buffer.toString(), 'hello' + TRUNCATION_MARKER);
+});
+
+test('TruncatingBuffer: stops growing once truncated', () => {
+  const buffer = new TruncatingBuffer(5);
+  buffer.append('hello world');
+  buffer.append(' more text');
+  assert.equal(buffer.toString(), 'hello' + TRUNCATION_MARKER);
+});
+
+test('TruncatingBuffer: defaults to HISTORY_OUTPUT_CAP', () => {
+  const buffer = new TruncatingBuffer();
+  buffer.append('x'.repeat(HISTORY_OUTPUT_CAP));
+  assert.equal(buffer.toString(), 'x'.repeat(HISTORY_OUTPUT_CAP));
+  buffer.append('y');
+  assert.equal(buffer.toString(), 'x'.repeat(HISTORY_OUTPUT_CAP) + TRUNCATION_MARKER);
+});
+
+test('HistoryManager.getFavorites returns an empty array initially', () => {
+  const manager = new HistoryManager(createFakeMemento(), { historyLimit: 200, recentLimit: 5 });
+  assert.deepEqual(manager.getFavorites(), []);
+  assert.equal(manager.isFavorite('build'), false);
+});
+
+test('HistoryManager.toggleFavorite adds and then removes a command id', () => {
+  const manager = new HistoryManager(createFakeMemento(), { historyLimit: 200, recentLimit: 5 });
+
+  manager.toggleFavorite('build');
+  assert.deepEqual(manager.getFavorites(), ['build']);
+  assert.equal(manager.isFavorite('build'), true);
+
+  manager.toggleFavorite('build');
+  assert.deepEqual(manager.getFavorites(), []);
+  assert.equal(manager.isFavorite('build'), false);
+});
+
+test('HistoryManager.getRecent returns an empty array initially', () => {
+  const manager = new HistoryManager(createFakeMemento(), { historyLimit: 200, recentLimit: 5 });
+  assert.deepEqual(manager.getRecent(), []);
+});
+
+test('HistoryManager.recordUsed moves a command id to the front, deduped', () => {
+  const manager = new HistoryManager(createFakeMemento(), { historyLimit: 200, recentLimit: 5 });
+
+  manager.recordUsed('build');
+  manager.recordUsed('lint');
+  manager.recordUsed('build');
+
+  assert.deepEqual(manager.getRecent(), ['build', 'lint']);
+});
+
+test('HistoryManager.recordUsed evicts the oldest entry beyond recentLimit', () => {
+  const manager = new HistoryManager(createFakeMemento(), { historyLimit: 200, recentLimit: 2 });
+
+  manager.recordUsed('a');
+  manager.recordUsed('b');
+  manager.recordUsed('c');
+
+  assert.deepEqual(manager.getRecent(), ['c', 'b']);
 });
