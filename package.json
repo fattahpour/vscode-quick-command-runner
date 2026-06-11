@@ -26,6 +26,10 @@
         {
           "id": "quickCommandRunnerCommands",
           "name": "Commands"
+        },
+        {
+          "id": "quickCommandRunnerHistory",
+          "name": "History"
         }
       ]
     },
@@ -53,6 +57,16 @@
           "type": "number",
           "default": 3000,
           "description": "Delay in milliseconds between SIGTERM and SIGKILL when cancelling a running command."
+        },
+        "quickCommandRunner.historyLimit": {
+          "type": "number",
+          "default": 200,
+          "description": "Maximum number of command history entries to keep."
+        },
+        "quickCommandRunner.recentLimit": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of commands shown in the \"Recent\" section of the Commands view."
         }
       }
     },
@@ -65,23 +79,38 @@
       { "command": "quickCommandRunner.openLog", "title": "Open Log", "category": "Quick Command Runner" },
       { "command": "quickCommandRunner.clearLog", "title": "Clear Log", "category": "Quick Command Runner" },
       { "command": "quickCommandRunner.copyCommandLine", "title": "Copy Command Line", "category": "Quick Command Runner" },
-      { "command": "quickCommandRunner.createConfig", "title": "Create Config", "category": "Quick Command Runner" }
+      { "command": "quickCommandRunner.createConfig", "title": "Create Config", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.toggleFavorite", "title": "Toggle Favorite", "icon": "$(star-full)" },
+      { "command": "quickCommandRunner.historySort", "title": "Sort History", "icon": "$(list-ordered)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.historyFilter", "title": "Filter History", "icon": "$(filter)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.historyClear", "title": "Clear History", "icon": "$(clear-all)", "category": "Quick Command Runner" },
+      { "command": "quickCommandRunner.historyRerun", "title": "Re-run", "icon": "$(play)" },
+      { "command": "quickCommandRunner.historyOpenLog", "title": "Open Log", "category": "Quick Command Runner" }
     ],
     "menus": {
       "view/title": [
         { "command": "quickCommandRunner.refresh", "when": "view == quickCommandRunnerCommands", "group": "navigation@1" },
         { "command": "quickCommandRunner.search", "when": "view == quickCommandRunnerCommands", "group": "navigation@2" },
-        { "command": "quickCommandRunner.clearFilter", "when": "view == quickCommandRunnerCommands && quickCommandRunner.filterActive", "group": "navigation@3" }
+        { "command": "quickCommandRunner.clearFilter", "when": "view == quickCommandRunnerCommands && quickCommandRunner.filterActive", "group": "navigation@3" },
+        { "command": "quickCommandRunner.refresh", "when": "view == quickCommandRunnerHistory", "group": "navigation@1" },
+        { "command": "quickCommandRunner.historySort", "when": "view == quickCommandRunnerHistory", "group": "navigation@2" },
+        { "command": "quickCommandRunner.historyFilter", "when": "view == quickCommandRunnerHistory", "group": "navigation@3" },
+        { "command": "quickCommandRunner.historyClear", "when": "view == quickCommandRunnerHistory", "group": "navigation@4" }
       ],
       "view/item/context": [
         {
           "command": "quickCommandRunner.run",
-          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\.(idle|success|failed|cancelled)$/",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\.(idle|success|failed|cancelled)\\.(fav|nofav)$/",
           "group": "inline"
         },
         {
           "command": "quickCommandRunner.cancel",
-          "when": "view == quickCommandRunnerCommands && viewItem == cmd.running",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\.running\\.(fav|nofav)$/",
+          "group": "inline"
+        },
+        {
+          "command": "quickCommandRunner.toggleFavorite",
+          "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\./",
           "group": "inline"
         },
         {
@@ -98,6 +127,16 @@
           "command": "quickCommandRunner.copyCommandLine",
           "when": "view == quickCommandRunnerCommands && viewItem =~ /^cmd\\./",
           "group": "2_copy"
+        },
+        {
+          "command": "quickCommandRunner.historyRerun",
+          "when": "view == quickCommandRunnerHistory && viewItem =~ /^history\\./",
+          "group": "inline"
+        },
+        {
+          "command": "quickCommandRunner.historyOpenLog",
+          "when": "view == quickCommandRunnerHistory && viewItem =~ /^history\\./",
+          "group": "1_log"
         }
       ]
     }

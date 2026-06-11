@@ -7,9 +7,10 @@ import { DEFAULT_CONFIG } from './defaultConfig';
 import { StatusManager } from './statusManager';
 import { LogManager } from './logManager';
 import { ClipboardManager } from './clipboardManager';
-import { HistoryManager } from './historyManager';
+import { HistoryManager, HistorySort } from './historyManager';
 import { CommandRunner } from './commandRunner';
 import { CommandProvider, CommandTreeItem } from './commandProvider';
+import { HistoryProvider, HistoryTreeItem } from './historyProvider';
 import { describeCommandLine } from './commandViewModel';
 
 const EMPTY_CONFIG: ConfigLoadResult = {
@@ -19,6 +20,12 @@ const EMPTY_CONFIG: ConfigLoadResult = {
   errors: [],
 };
 
+const SORT_OPTIONS: { label: string; value: HistorySort }[] = [
+  { label: 'Time', value: 'time' },
+  { label: 'Duration', value: 'duration' },
+  { label: 'Status', value: 'status' },
+];
+
 export function activate(context: vscode.ExtensionContext): void {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const workspaceFolder = folder?.uri.fsPath;
@@ -26,7 +33,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusManager = new StatusManager();
   const logManager = new LogManager();
   const clipboardManager = new ClipboardManager();
-  const historyManager = new HistoryManager(context.workspaceState, { historyLimit: 200, recentLimit: 5 });
+
+  const historyLimitSetting = (): number =>
+    vscode.workspace.getConfiguration('quickCommandRunner').get<number>('historyLimit', 200);
+
+  const recentLimitSetting = (): number =>
+    vscode.workspace.getConfiguration('quickCommandRunner').get<number>('recentLimit', 5);
+
+  const historyManager = new HistoryManager(context.workspaceState, {
+    historyLimit: historyLimitSetting(),
+    recentLimit: recentLimitSetting(),
+  });
 
   let configResult: ConfigLoadResult = EMPTY_CONFIG;
 
@@ -53,6 +70,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const provider = new CommandProvider(() => configResult, statusManager, historyManager);
   const treeView = vscode.window.createTreeView('quickCommandRunnerCommands', {
     treeDataProvider: provider,
+  });
+
+  const historyProvider = new HistoryProvider(historyManager);
+  const historyTreeView = vscode.window.createTreeView('quickCommandRunnerHistory', {
+    treeDataProvider: historyProvider,
   });
 
   const cancelGracePeriodMs = vscode.workspace
@@ -86,6 +108,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (!showNotificationsEnabled()) {
       await runner.run(def);
+      historyProvider.refresh();
       return;
     }
 
@@ -96,6 +119,8 @@ export function activate(context: vscode.ExtensionContext): void {
         await runner.run(def);
       },
     );
+
+    historyProvider.refresh();
 
     const lastResult = statusManager.getStatus(def.id).lastResult;
     if (lastResult?.status === 'success') {
@@ -109,7 +134,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     treeView,
+    historyTreeView,
     provider,
+    historyProvider,
     logManager,
 
     vscode.commands.registerCommand('quickCommandRunner.run', async (item?: CommandTreeItem) => {
@@ -133,6 +160,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('quickCommandRunner.refresh', () => {
       reloadConfig();
       provider.refresh();
+      historyProvider.refresh();
     }),
 
     vscode.commands.registerCommand('quickCommandRunner.search', async () => {
@@ -192,6 +220,83 @@ export function activate(context: vscode.ExtensionContext): void {
       reloadConfig();
       provider.refresh();
       void vscode.window.showInformationMessage('Created .vscode/quick-command-runner.json');
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.toggleFavorite', (item?: CommandTreeItem) => {
+      if (!item) {
+        return;
+      }
+      historyManager.toggleFavorite(item.def.id);
+      provider.refresh();
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.historySort', async () => {
+      const picked = await vscode.window.showQuickPick(
+        SORT_OPTIONS.map((option) => option.label),
+        { placeHolder: 'Sort history by' },
+      );
+      if (!picked) {
+        return;
+      }
+      const option = SORT_OPTIONS.find((candidate) => candidate.label === picked);
+      if (!option) {
+        return;
+      }
+      historyManager.setSort(option.value);
+      historyProvider.refresh();
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.historyFilter', async () => {
+      const value = await vscode.window.showInputBox({
+        prompt: 'Filter history by command name or status',
+        value: historyManager.getFilter(),
+      });
+      if (value === undefined) {
+        return;
+      }
+      historyManager.setFilter(value);
+      historyProvider.refresh();
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.historyClear', async () => {
+      const choice = await vscode.window.showWarningMessage(
+        'Clear all command history? This cannot be undone.',
+        { modal: true },
+        'Clear History',
+      );
+      if (choice !== 'Clear History') {
+        return;
+      }
+      historyManager.clear();
+      historyProvider.refresh();
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.historyRerun', async (item?: HistoryTreeItem) => {
+      if (!item) {
+        return;
+      }
+      await runCommand(item.entry.commandSnapshot);
+    }),
+
+    vscode.commands.registerCommand('quickCommandRunner.historyOpenLog', async (item?: HistoryTreeItem) => {
+      if (!item) {
+        return;
+      }
+      const { entry } = item;
+      if (logManager.hasChannel(entry.commandId)) {
+        logManager.show(entry.commandId, entry.commandSnapshot.name);
+        return;
+      }
+      const content = [
+        `$ ${entry.fullCommand}`,
+        '',
+        '--- stdout ---',
+        entry.stdout,
+        '--- stderr ---',
+        entry.stderr,
+      ].join('\n');
+      const doc = await vscode.workspace.openTextDocument({ content, language: 'log' });
+      await vscode.window.showTextDocument(doc, { preview: false });
     }),
   );
 
