@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseConfig, validateConfig } from '../../src/configLoader';
+import * as path from 'path';
+import { configFilePath, loadConfigFromFile, parseConfig, validateConfig } from '../../src/configLoader';
 
 test('parseConfig returns empty groups for invalid JSON', () => {
   assert.deepEqual(parseConfig('not json'), { groups: [] });
@@ -77,4 +78,40 @@ test('validateConfig rejects duplicate ids across groups', () => {
   assert.equal(result.validCommands.size, 1);
   assert.equal(result.invalidCommands.size, 1);
   assert.match(result.errors[0].message, /Duplicate command id/);
+});
+
+test('configFilePath joins workspace folder with .vscode/quick-command-runner.json', () => {
+  const result = configFilePath('/home/user/project');
+  assert.equal(result, path.join('/home/user/project', '.vscode', 'quick-command-runner.json'));
+});
+
+test('loadConfigFromFile returns null when the file does not exist', () => {
+  const fakeFs = { existsSync: () => false, readFileSync: () => '' };
+  assert.equal(loadConfigFromFile('/workspace/.vscode/quick-command-runner.json', fakeFs), null);
+});
+
+test('loadConfigFromFile parses and validates an existing file', () => {
+  const raw = JSON.stringify({
+    groups: [{ name: 'Build', commands: [{ id: 'build', name: 'Build', command: 'npm run build' }] }],
+  });
+  const fakeFs = { existsSync: () => true, readFileSync: () => raw };
+
+  const result = loadConfigFromFile('/workspace/.vscode/quick-command-runner.json', fakeFs);
+
+  assert.ok(result);
+  assert.equal(result?.validCommands.size, 1);
+  assert.equal(result?.errors.length, 0);
+});
+
+test('loadConfigFromFile surfaces validation errors from the loaded config', () => {
+  const raw = JSON.stringify({
+    groups: [{ name: 'Build', commands: [{ id: 'bad', name: 'Bad' }] }],
+  });
+  const fakeFs = { existsSync: () => true, readFileSync: () => raw };
+
+  const result = loadConfigFromFile('/workspace/.vscode/quick-command-runner.json', fakeFs);
+
+  assert.ok(result);
+  assert.equal(result?.invalidCommands.size, 1);
+  assert.match(result?.errors[0].message ?? '', /exactly one/);
 });

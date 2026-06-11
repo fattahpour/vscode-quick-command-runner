@@ -1,3 +1,4 @@
+import * as path from 'path';
 import {
   CommandDefinition,
   ConfigLoadResult,
@@ -87,4 +88,21 @@ export function validateConfig(config: QuickCommandRunnerConfig): ConfigLoadResu
   }
 
   return { config, validCommands, invalidCommands, errors };
+}
+
+export interface ConfigFileSystem {
+  existsSync: (filePath: string) => boolean;
+  readFileSync: (filePath: string, encoding: 'utf8') => string;
+}
+
+export function configFilePath(workspaceFolder: string): string {
+  return path.join(workspaceFolder, '.vscode', 'quick-command-runner.json');
+}
+
+export function loadConfigFromFile(filePath: string, fs: ConfigFileSystem): ConfigLoadResult | null {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const raw = fs.readFileSync(filePath, 'utf8');
+  return validateConfig(parseConfig(raw));
 }

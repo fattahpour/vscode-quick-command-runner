@@ -20,11 +20,11 @@ test('startExecution adds an active entry with pid and startTime', () => {
 test('finishExecution removes the active entry and records lastResult', () => {
   const manager = new StatusManager();
   manager.startExecution('build', 123, 1000);
-  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000 });
+  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 
   const status = manager.getStatus('build');
   assert.equal(status.active.length, 0);
-  assert.deepEqual(status.lastResult, { status: 'success', endTime: 2000, durationMs: 1000 });
+  assert.deepEqual(status.lastResult, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 });
 
 test('parallel executions of the same command stay active until each finishes', () => {
@@ -33,12 +33,12 @@ test('parallel executions of the same command stay active until each finishes', 
   manager.startExecution('build', 200, 1001);
   assert.equal(manager.getStatus('build').active.length, 2);
 
-  manager.finishExecution('build', 100, { status: 'success', endTime: 2000, durationMs: 1000 });
+  manager.finishExecution('build', 100, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 
   const status = manager.getStatus('build');
   assert.equal(status.active.length, 1);
   assert.equal(status.active[0].pid, 200);
-  assert.deepEqual(status.lastResult, { status: 'success', endTime: 2000, durationMs: 1000 });
+  assert.deepEqual(status.lastResult, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 });
 
 test('onDidChangeStatus notifies listeners with the affected command id', () => {
@@ -47,7 +47,7 @@ test('onDidChangeStatus notifies listeners with the affected command id', () => 
   manager.onDidChangeStatus((commandId) => seen.push(commandId));
 
   manager.startExecution('build', 123, 1000);
-  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000 });
+  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 
   assert.deepEqual(seen, ['build', 'build']);
 });
@@ -59,7 +59,15 @@ test('onDidChangeStatus: disposed listener stops receiving notifications', () =>
 
   manager.startExecution('build', 123, 1000);
   sub.dispose();
-  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000 });
+  manager.finishExecution('build', 123, { status: 'success', endTime: 2000, durationMs: 1000, exitCode: 0 });
 
   assert.deepEqual(seen, ['build']);
+});
+
+test('finishExecution stores exitCode on lastResult', () => {
+  const manager = new StatusManager();
+  manager.startExecution('build', 123, 1000);
+  manager.finishExecution('build', 123, { status: 'failed', endTime: 2000, durationMs: 1000, exitCode: 1 });
+
+  assert.equal(manager.getStatus('build').lastResult?.exitCode, 1);
 });
