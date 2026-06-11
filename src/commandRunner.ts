@@ -42,6 +42,7 @@ export class CommandRunner {
         endTime: Date.now(),
         durationMs: 0,
         exitCode: null,
+        extractedPaths: [],
       });
       return;
     }
@@ -83,6 +84,7 @@ export class CommandRunner {
           endTime,
           durationMs: endTime - startTime,
           exitCode: code,
+          extractedPaths: [],
         });
         resolve();
       });

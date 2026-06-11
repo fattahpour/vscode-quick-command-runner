@@ -34,7 +34,7 @@ test('deriveDisplayStatus: active executions mean running', () => {
 test('deriveDisplayStatus: no active executions falls back to lastResult.status', () => {
   const status: CommandStatus = {
     active: [],
-    lastResult: { status: 'failed', endTime: 1000, durationMs: 500, exitCode: 1 },
+    lastResult: { status: 'failed', endTime: 1000, durationMs: 500, exitCode: 1, extractedPaths: [] },
   };
   assert.equal(deriveDisplayStatus(status, false), 'failed');
 });
@@ -60,7 +60,7 @@ test('formatStatusDescription: running with multiple active executions shows cou
 test('formatStatusDescription: success shows duration in seconds', () => {
   const status: CommandStatus = {
     active: [],
-    lastResult: { status: 'success', endTime: 5000, durationMs: 3200, exitCode: 0 },
+    lastResult: { status: 'success', endTime: 5000, durationMs: 3200, exitCode: 0, extractedPaths: [] },
   };
   assert.equal(formatStatusDescription('success', status, 0), '✓ 3.2s');
 });
@@ -68,7 +68,7 @@ test('formatStatusDescription: success shows duration in seconds', () => {
 test('formatStatusDescription: failed shows exit code', () => {
   const status: CommandStatus = {
     active: [],
-    lastResult: { status: 'failed', endTime: 5000, durationMs: 100, exitCode: 1 },
+    lastResult: { status: 'failed', endTime: 5000, durationMs: 100, exitCode: 1, extractedPaths: [] },
   };
   assert.equal(formatStatusDescription('failed', status, 0), '✗ exit 1');
 });
@@ -76,7 +76,7 @@ test('formatStatusDescription: failed shows exit code', () => {
 test('formatStatusDescription: failed with no exit code shows ?', () => {
   const status: CommandStatus = {
     active: [],
-    lastResult: { status: 'failed', endTime: 5000, durationMs: 100, exitCode: null },
+    lastResult: { status: 'failed', endTime: 5000, durationMs: 100, exitCode: null, extractedPaths: [] },
   };
   assert.equal(formatStatusDescription('failed', status, 0), '✗ exit ?');
 });
@@ -121,7 +121,7 @@ test('buildCommandViewState: combines status, description, tooltip, contextValue
   };
   const status: CommandStatus = {
     active: [],
-    lastResult: { status: 'success', endTime: 5000, durationMs: 3200, exitCode: 0 },
+    lastResult: { status: 'success', endTime: 5000, durationMs: 3200, exitCode: 0, extractedPaths: [] },
   };
 
   const viewState = buildCommandViewState(def, status, false, 0);

@@ -87,6 +87,7 @@ export interface LastResult {
   endTime: number;
   durationMs: number;
   exitCode: number | null;
+  extractedPaths: string[];
 }
 
 export interface CommandStatus {
